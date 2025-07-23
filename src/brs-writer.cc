@@ -1513,6 +1513,20 @@ void CWriter::Write(const ExprList& exprs) {
         break;
       }
 
+      case ExprType::MemoryCopy: {
+        const auto inst = cast<MemoryCopyExpr>(&expr);
+        Memory* dest_memory =
+            module_->memories[module_->GetMemoryIndex(inst->destmemidx)];
+        const Memory* src_memory = module_->GetMemory(inst->srcmemidx);
+        Write("MemoryCopy(",
+          ExternalRef(dest_memory->name), ", ",
+          StackVar(2), ", ",
+          ExternalRef(src_memory->name), ", ",
+          StackVar(1), ", ",
+          StackVar(0), ")", Newline());
+        DropTypes(3);
+      } break;
+
       case ExprType::AtomicLoad:
       case ExprType::AtomicRmw:
       case ExprType::AtomicRmwCmpxchg:
@@ -1525,7 +1539,6 @@ void CWriter::Write(const ExprList& exprs) {
       case ExprType::ReturnCallIndirect:
       case ExprType::Throw:
       case ExprType::Try:
-      case ExprType::MemoryCopy:
       case ExprType::DataDrop:
       case ExprType::MemoryInit:
       case ExprType::MemoryFill:
