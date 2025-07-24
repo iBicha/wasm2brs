@@ -109,7 +109,7 @@ build/mandelbrot/mandelbrot-wasm.out.brs: build/mandelbrot/mandelbrot.wasm build
 
 build/mandelbrot/mandelbrot.wasm: samples/mandelbrot/mandelbrot.c
 	mkdir -p build/mandelbrot
-	clang -Ofast --target=wasm32 -nostdlib -Wl,--no-entry samples/mandelbrot/mandelbrot.c -o ./build/mandelbrot/mandelbrot.wasm
+	wasm32-wasi-clang -O3 -ffast-math --target=wasm32 -nostdlib -Wl,--no-entry samples/mandelbrot/mandelbrot.c -o ./build/mandelbrot/mandelbrot.wasm
 
 # --- javascript
 javascript: build/javascript/javascript-wasm.out.brs
