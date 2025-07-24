@@ -1513,6 +1513,15 @@ void CWriter::Write(const ExprList& exprs) {
         break;
       }
 
+      case ExprType::MemoryFill: {
+        const auto inst = cast<MemoryFillExpr>(&expr);
+        Memory* memory =
+            module_->memories[module_->GetMemoryIndex(inst->memidx)];
+        Write("MemSet(", ExternalRef(memory->name), ", ",
+              StackVar(2), ", ", StackVar(1), ", ", StackVar(0), ")", Newline());
+        DropTypes(3);
+      } break;
+
       case ExprType::MemoryCopy: {
         const auto inst = cast<MemoryCopyExpr>(&expr);
         Memory* dest_memory =
@@ -1541,7 +1550,6 @@ void CWriter::Write(const ExprList& exprs) {
       case ExprType::Try:
       case ExprType::DataDrop:
       case ExprType::MemoryInit:
-      case ExprType::MemoryFill:
       case ExprType::TableCopy:
       case ExprType::ElemDrop:
       case ExprType::TableInit:

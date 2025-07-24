@@ -37,7 +37,7 @@ Function CatchingStart()
     Try
         Start()
     Catch e
-        Print e
+        Print FormatJson(e)
     End Try
 EndFunction
 

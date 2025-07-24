@@ -94,7 +94,7 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
 
   const outJsonFilename = "current.json";
   const outJson = path.join(runtestOut, outJsonFilename);
-  const wast2Json = await execa("third_party/wabt/bin/wast2json",
+  const wast2Json = await execa("wast2json",
     [
       "--disable-multi-value",
       testWast,

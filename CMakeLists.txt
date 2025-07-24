@@ -6,13 +6,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_subdirectory(third_party/wabt)
-set(BUILD_TESTS OFF)
-add_subdirectory(third_party/binaryen)
+if(NOT DEFINED ENV{WABT_INCLUDE_DIR})
+    message(FATAL_ERROR "WABT_INCLUDE_DIR environment variable is not defined!")
+endif()
+set(WABT_LIB_DIR $ENV{WABT_LIB_DIR})
 
-include_directories(${WABT_SOURCE_DIR} ${WABT_BINARY_DIR})
+if(NOT DEFINED ENV{WABT_LIB_DIR})
+    message(FATAL_ERROR "WABT_LIB_DIR environment variable is not defined!")
+endif()
+set(WABT_INCLUDE_DIR $ENV{WABT_INCLUDE_DIR})
+
+include_directories(${WABT_INCLUDE_DIR})
 
 add_executable(wasm2brs src/wasm2brs.cc src/brs-writer.cc)
 
-add_dependencies(wasm2brs wabt)
-target_link_libraries(wasm2brs wabt)
+target_link_libraries(wasm2brs PRIVATE ${WABT_LIB_DIR}/libwabt.a)
