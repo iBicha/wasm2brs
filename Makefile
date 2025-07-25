@@ -76,7 +76,8 @@ files: build/files/files-wasm.out.brs
 	cp samples/files/manifest project/manifest
 
 build/files/files-wasm.out.brs: build/files/files.wasm build/wasm2brs/wasm2brs
-	./build/wasm2brs/wasm2brs -o build/files/files-wasm.out.brs ./build/files/files.wasm
+	wasm-opt -O4 ./build/files/files.wasm -o ./build/files/files-opt.wasm
+	./build/wasm2brs/wasm2brs -o build/files/files-wasm.out.brs ./build/files/files-opt.wasm
 
 build/files/files.wasm: samples/files/files.cc
 	mkdir -p build/files
