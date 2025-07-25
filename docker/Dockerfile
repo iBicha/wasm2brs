@@ -48,7 +48,9 @@ ENV PATH="/opt/wasi-sdk/bin:${PATH}"
 ENV WASI_SDK_PATH="/opt/wasi-sdk"
 
 # Wasmer
+ENV WASMER_DIR=/opt/wasmer
 RUN curl https://get.wasmer.io -sSfL | sh
+ENV PATH="${WASMER_DIR}/bin:${PATH}"
 
 # Rust
 ENV RUSTUP_HOME=/opt/rust
