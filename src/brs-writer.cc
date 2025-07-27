@@ -407,6 +407,7 @@ char CWriter::MangleType(Type type) {
     case Type::I64: return 'j';
     case Type::F32: return 'f';
     case Type::F64: return 'd';
+    case Type::ExternRef: return 'e';
     default:
       BRS_UNREACHABLE;
       return '_';
@@ -653,8 +654,12 @@ void CWriter::Write(Type type) {
     case Type::I64: Write("LongInteger"); break;
     case Type::F32: Write("Float"); break;
     case Type::F64: Write("Double"); break;
+    case Type::FuncRef:
+    case Type::ExternRef: 
+      Write("Dynamic"); 
+      break;
     default:
-      BRS_UNREACHABLE;
+      BRS_ABORT("Unsupported Type " << static_cast<int>(type));
   }
 }
 
@@ -748,8 +753,10 @@ void CWriter::Write(const Const& const_) {
 }
 
 void CWriter::WriteInitExpr(const ExprList& expr_list) {
-  if (expr_list.empty())
+  if (expr_list.empty()) {
+    Write("0");
     return;
+  }
 
   assert(expr_list.size() == 1);
   const Expr* expr = &expr_list.front();
@@ -762,8 +769,12 @@ void CWriter::WriteInitExpr(const ExprList& expr_list) {
       Write(GlobalVar(cast<GlobalGetExpr>(expr)->var));
       break;
 
+    case ExprType::RefFunc:
+      Write(ExternalPtr(cast<RefFuncExpr>(expr)->var.name()));
+      break;
+
     default:
-      BRS_UNREACHABLE;
+      BRS_ABORT("Unsupported init expr type: " << GetExprTypeName(expr->type()));
   }
 }
 
@@ -994,13 +1005,22 @@ void CWriter::WriteElemInitializers() {
     for (const ExprList& expr_list : elem_segment->elem_exprs) {
       assert(expr_list.size() == 1);
       const Expr& expr = expr_list.front();
-      assert(expr.type() == ExprType::RefFunc);
+      switch (expr.type()) {
+        case ExprType::RefFunc: {
+          const RefFuncExpr& ref_func_expr = *cast<RefFuncExpr>(&expr);
+          const Func* func = module_->GetFunc(ref_func_expr.var);
+          Index func_type_index = module_->GetFuncTypeIndex(func->decl.type_var);
 
-      const RefFuncExpr& ref_func_expr = *cast<RefFuncExpr>(&expr);
-      const Func* func = module_->GetFunc(ref_func_expr.var);
-      Index func_type_index = module_->GetFuncTypeIndex(func->decl.type_var);
-
-      Write(ExternalRef(table->name), "[offset + ", i, "] = ", ExternalPtr(func->name), Newline());
+          Write(ExternalRef(table->name), "[offset + ", i, "] = ", ExternalPtr(func->name), Newline());
+          break;
+        }
+        case ExprType::RefNull:
+          Write(ExternalRef(table->name), "[offset + ", i, "] = Invalid", Newline());
+          break;
+        default:
+          BRS_ABORT("Unsupported elem expr type in WriteElemInitializers: " << GetExprTypeName(expr.type()));
+          break;
+      }
       ++i;
     }
   }
