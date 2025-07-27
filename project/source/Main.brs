@@ -55,6 +55,8 @@ sub Main()
     scene = sgScreen.CreateScene("main")
     sgScreen.show()
 
+    ' vscode_rdb_on_device_component_entry
+
     m.keyboard = scene.findNode("keyboard")
     m.keyboard.setFocus(True)
 
