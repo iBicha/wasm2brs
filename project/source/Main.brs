@@ -37,7 +37,11 @@ Function CatchingStart()
     Try
         Start()
     Catch e
-        Print FormatJson(e)
+        Print e
+        For i = 0 to e.backtrace.Count() -1
+            backtrace = e.backtrace[i]
+            Print backtrace.function;" ";backtrace.filename.replace("pkg:/", "./project/");":";backtrace.line_number.ToStr()
+        End For
     End Try
 EndFunction
 
