@@ -16,6 +16,12 @@ RUN apt-get update && \
         python3-pip \
         dumb-init
 
+# Install libssl1.1 manually.
+# Needed for running wasm2c
+RUN curl -LO http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb \
+ && apt-get install -y ./libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb \
+ && rm libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb
+
 # Emscripten SDK
 RUN git clone https://github.com/emscripten-core/emsdk.git /opt/emsdk && \
     cd /opt/emsdk && \
