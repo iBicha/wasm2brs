@@ -1007,9 +1007,15 @@ Function MemoryGrow(memory as Object, maxPages as Integer, deltaPages as Integer
 End Function
 
 Function MemoryCopy(dstBytes as Object, dst as Integer, srcBytes as Object, src as Integer, size as Integer) as Integer
-    For i = 0 To size - 1
-        dstBytes[dst + i] = srcBytes[src + i]
-    End For
+    If dst < src Or dst >= src + size Then
+        For i = 0 To size - 1
+            dstBytes[dst + i] = srcBytes[src + i]
+        End For
+    Else
+        For i = size - 1 To 0 Step -1
+            dstBytes[dst + i] = srcBytes[src + i]
+        End For
+    End If
     Return size
 End Function
 
