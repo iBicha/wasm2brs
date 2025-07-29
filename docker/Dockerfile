@@ -47,9 +47,9 @@ RUN curl -LO https://github.com/WebAssembly/binaryen/releases/download/version_1
 ENV PATH="/opt/binaryen/bin:${PATH}"
 
 # Wasi SDK
-RUN curl -LO https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-25/wasi-sdk-25.0-x86_64-linux.deb && \
-    dpkg -i wasi-sdk-25.0-x86_64-linux.deb && \
-    rm wasi-sdk-25.0-x86_64-linux.deb
+RUN curl -LO https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-x86_64-linux.deb && \
+    dpkg -i wasi-sdk-27.0-x86_64-linux.deb && \
+    rm wasi-sdk-27.0-x86_64-linux.deb
 ENV PATH="/opt/wasi-sdk/bin:${PATH}"
 ENV WASI_SDK_PATH="/opt/wasi-sdk"
 
