@@ -1,7 +1,7 @@
 Function Start()
-    _javascript_wasmInit__()
-    wasi_init(m._javascript_wasm_memory, "javascript.wasm", {})
-    _javascript_wasm__start()
+    w2bInit__()
+    wasi_init(m.w2b_memory, "javascript.wasm", {})
+    w2b__start()
     wasi_shutdown()
 End Function
 

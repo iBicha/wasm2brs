@@ -128,7 +128,7 @@ build/javascript/javascript.wasm: build/javascript/Makefile FORCE
 
 build/javascript/Makefile:
 	mkdir -p build/javascript
-	cd build/javascript && cmake -DCMAKE_TOOLCHAIN_FILE=${WASI_SDK_PATH}/share/cmake/wasi-sdk.cmake ../../samples/javascript
+	cd build/javascript && emcmake cmake ../../samples/javascript
 
 # --- rust
 rust: build/rust/rust-wasm.out.brs
