@@ -121,7 +121,7 @@ javascript: build/javascript/javascript-wasm.out.brs
 
 build/javascript/javascript-wasm.out.brs: build/javascript/javascript.wasm build/wasm2brs/wasm2brs
 	wasm-opt -g -O4 ./build/javascript/javascript.wasm -o ./build/javascript/javascript-opt.wasm
-	./build/wasm2brs/wasm2brs -o build/javascript/javascript-wasm.out.brs ./build/javascript/javascript-opt.wasm
+	./build/wasm2brs/wasm2brs --enable-exceptions -o build/javascript/javascript-wasm.out.brs ./build/javascript/javascript-opt.wasm
 
 build/javascript/javascript.wasm: build/javascript/Makefile FORCE
 	GNUMAKEFLAGS=--no-print-directory cmake --build ./build/javascript --parallel

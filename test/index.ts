@@ -50,11 +50,17 @@ interface WastAssertReturnCommand extends WastCommand {
   expected: WastArg[];
 }
 
-interface WastJson {
-  commands: (WastModuleCommand | WastActionCommand | WastAssertReturnCommand)[];
+interface WastAssertExceptionCommand extends WastCommand {
+  type: "assert_exception";
+  action: WastActionInvoke;
+  expected: WastArg[];
 }
 
-type WastTestCommand = WastAssertReturnCommand | WastActionCommand;
+interface WastJson {
+  commands: (WastModuleCommand | WastActionCommand | WastAssertReturnCommand | WastAssertExceptionCommand)[];
+}
+
+type WastTestCommand = WastAssertReturnCommand | WastAssertExceptionCommand | WastActionCommand;
 
 interface WastTest {
   module: WastModuleCommand;
@@ -97,6 +103,7 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
   const wast2Json = await execa("wast2json",
     [
       "--disable-multi-value",
+      "--enable-exceptions",
       testWast,
       "-o", outJson
     ],
@@ -121,7 +128,9 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
         commands: []
       };
       tests.push(currentTest);
-    } else if (command.type === "action" || command.type === "assert_return" && command.action.type === "invoke") {
+    } else if (command.type === "action" ||
+      command.type === "assert_return" && command.action.type === "invoke" ||
+      command.type === "assert_exception" && command.action.type === "invoke") {
       command.jsonLine = currentJsonLine;
       currentTest.commands.push(command);
     }
@@ -141,7 +150,20 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
   const doubleNegativeZeroBrs = "DoubleNegativeZero()";
   const toArgValue = (arg: WastArg) => {
     if (arg.type === "i32" || arg.type === "i64") {
-      return arg.value + (arg.type === "i32" ? "%" : "&");
+      if (arg.value === undefined) {
+        return `0${arg.type === "i32" ? "%" : "&"}`;
+      }
+      let value = BigInt(arg.value);
+      if (arg.type === "i32") {
+        if (value > BigInt("0x7FFFFFFF")) {
+          value -= BigInt("0x100000000");
+        }
+        return `${value.toString()}%`;
+      }
+      if (value > BigInt("0x7FFFFFFFFFFFFFFF")) {
+        value -= BigInt("0x10000000000000000");
+      }
+      return `${value.toString()}&`;
     }
 
     // TODO(trevor): Differentiate between nan:canonical and nan:arithmetic (find a way in BrightScript)
@@ -206,6 +228,7 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
     const wasm2BrsResult = await execa(wasm2brs,
       [
         "--name-prefix", moduleName,
+        "--enable-exceptions",
         path.join(runtestOut, test.module.filename)
       ],
       fromRootOptions);
@@ -222,17 +245,18 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
       `Function ${moduleName}()\n` +
       `  ${moduleName}Init__() ${sourceMapNewline(test.module)}`;
 
-    const writeInvoke = (command: WastTestCommand, invoke: WastActionInvoke) => {
+    const writeInvoke = (command: WastTestCommand, invoke: WastActionInvoke, indent: string) => {
       const param = invoke.args.map((arg) => toArgValue(arg)).join(",");
       testFunction +=
-        `  result = ${legalizeName(invoke.module || moduleName, invoke.field)}(${param}) ${sourceMapNewline(command)}`;
+        `${indent}result = ${legalizeName(invoke.module || moduleName, invoke.field)}(${param}) ` +
+        `${sourceMapNewline(command)}`;
     };
 
     for (const command of test.commands) {
       switch (command.type) {
         case "assert_return": {
           if (command.action.type === "invoke") {
-            writeInvoke(command, command.action);
+            writeInvoke(command, command.action, "  ");
             for (const [index, arg] of command.expected.entries()) {
               const expected = toArgValue(arg);
               testFunction += `  AssertEquals(${command.expected.length === 1
@@ -243,8 +267,20 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
           }
           break;
         }
+        case "assert_exception": {
+          if (command.action.type === "invoke") {
+            testFunction += "  Try\n";
+            writeInvoke(command, command.action, "    ");
+            testFunction += "    print \"Expected exception, but no exception was thrown\"\n";
+            testFunction += "    STOP\n";
+            testFunction += "  Catch e\n";
+            testFunction += "    AssertEquals(e.number, &h100)\n";
+            testFunction += "  End Try\n";
+          }
+          break;
+        }
         case "action": {
-          writeInvoke(command, command.action);
+          writeInvoke(command, command.action, "  ");
           break;
         }
       }
@@ -258,7 +294,7 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
 
   testCasesFile += "Function GetSettings()\n" +
     "Return { CustomInit: InitSpectest }\n" +
-  "End Function";
+    "End Function";
 
   fs.writeFileSync(testCasesBrs, testCasesFile);
   fs.writeFileSync(testWasmBrs, testWasmFile);
@@ -383,17 +419,30 @@ const outputAndMaybeDeploy = async (wastFile: string, host?: string): Promise<bo
 
   if (args.wast === undefined) {
     const results: string[] = [];
-    for (const file of fs.readdirSync(testSuiteDir)) {
-      if (path.extname(file) === ".wast" && file !== "names.wast") {
-        const result = await outputAndMaybeDeploy(path.join(testSuiteDir, file), host);
-        if (typeof result === "string") {
-          results.push(`FAIL - ${result} - ${file}`);
-        } else if (result === false) {
-          results.push(`SKIP - ${file}`);
-        } else {
-          results.push(`PASS - ${file}`);
-        }
+
+    const exceptionTestFiles = [
+      "proposals/wasm-3.0/throw_ref.wast",
+      "proposals/wasm-3.0/throw.wast",
+      "proposals/wasm-3.0/try_table.wast"
+    ].map((file) => path.join(testSuiteDir, file));
+
+    const rootTestFiles = fs.readdirSync(testSuiteDir).
+      filter((file) => path.extname(file) === ".wast" && file !== "names.wast").
+      map((file) => path.join(testSuiteDir, file));
+
+    const testFiles = [...rootTestFiles, ...exceptionTestFiles];
+
+    for (const file of testFiles) {
+      const result = await outputAndMaybeDeploy(file, host);
+      let line = "";
+      if (typeof result === "string") {
+        line = `FAIL - ${result} - ${path.basename(file)}`;
+      } else if (result === false) {
+        line = `SKIP - ${path.basename(file)}`;
+      } else {
+        line = `PASS - ${path.basename(file)}`;
       }
+      results.push(line);
     }
     console.log(results.sort().join("\n"));
   } else {

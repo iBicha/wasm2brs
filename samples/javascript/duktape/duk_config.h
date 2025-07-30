@@ -2897,6 +2897,7 @@ typedef struct duk_hthread duk_context;
  *  Forced options
  */
 
+#define DUK_USE_CPP_EXCEPTIONS
 #define DUK_USE_EXEC_PREFER_SIZE
 #undef DUK_USE_HSTRING_ARRIDX
 #define DUK_USE_PREFER_SIZE
@@ -2928,7 +2929,6 @@ typedef struct duk_hthread duk_context;
 #define DUK_USE_CBOR_SUPPORT
 #define DUK_USE_COMPILER_RECLIMIT 2500
 #define DUK_USE_COROUTINE_SUPPORT
-#undef DUK_USE_CPP_EXCEPTIONS
 #undef DUK_USE_DATAPTR16
 #undef DUK_USE_DATAPTR_DEC16
 #undef DUK_USE_DATAPTR_ENC16

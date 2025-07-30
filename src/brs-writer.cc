@@ -44,6 +44,7 @@
 
 #define BRS_ABORT(x) (std::cerr << __FILE__ << "(" << __LINE__ << ") in " << __FUNCTION__ << ": " << x), abort()
 #define BRS_UNREACHABLE BRS_ABORT("Unreachable")
+#define BRS_WASM_EXCEPTION 0x100
 
 namespace wabt {
 
@@ -1100,8 +1101,13 @@ void CWriter::WriteExports() {
         break;
       }
 
+      case ExternalKind::Tag: {
+        Write("' ", mangled_name, " = ", module_->GetTagIndex(export_->var), Newline());
+        continue;
+      }
+
       default:
-        BRS_UNREACHABLE;
+        BRS_ABORT("Unsupported export kind " << static_cast<int>(export_->kind));
     }
 
     Write(mangled_name, " = ", ExternalPtr(internal_name), Newline());
@@ -1556,6 +1562,109 @@ void CWriter::Write(const ExprList& exprs) {
         DropTypes(3);
       } break;
 
+      case ExprType::Throw: {
+        const auto& var = cast<ThrowExpr>(&expr)->var;
+        const Tag* tag = module_->GetTag(var);
+        Index num_params = tag->decl.sig.GetNumParams();
+        Write("Throw { number: ", BRS_WASM_EXCEPTION, ", tag: ", module_->GetTagIndex(var), ", values: ");
+        if (num_params == 0) {
+          Write("CreateObject(\"roArray\", 0, false)");
+        } else {
+          Write("[");
+          for (Index i = 0; i < num_params; ++i) {
+            if (i > 0) Write(", ");
+            // TODO: what if we have no stack vars?
+            Write(StackVar(num_params - 1 - i));
+          }
+          Write("]");
+        }
+        Write(" }", Newline());
+        DropTypes(num_params);
+        return;
+      }
+
+      case ExprType::Rethrow: {
+        Write("throw e", Newline());
+        return;
+      }
+
+      case ExprType::Try: {
+        const auto& try_ = *cast<TryExpr>(&expr);
+        std::string label = DefineLocalScopeName(try_.block.label);
+        size_t mark = MarkTypeStack();
+        Write("Try", OpenBrace());
+        PushLabel(LabelType::Try, try_.block.label, try_.block.decl.sig);
+        Write(try_.block.exprs);
+        PopLabel();
+        Write(CloseBrace(), "Catch e", OpenBrace());
+
+        // Rethrow for any non wasm exceptions.
+        // These are runtime bugs and should not be caught.
+        Write("If e.number <> ", BRS_WASM_EXCEPTION, " Then", OpenBrace());
+        Write("Throw e", Newline());
+        Write(CloseBrace(), "End If", Newline());
+
+        if (try_.catches.empty()) {
+          Write("Throw e", Newline());
+        } else {
+          bool has_if_chain = false;
+          for (const auto& catch_ : try_.catches) {
+            if (!catch_.IsCatchAll()) {
+              has_if_chain = true;
+              break;
+            }
+          }
+
+          bool first_catch = true;
+          for (const auto& catch_ : try_.catches) {
+            if (catch_.IsCatchAll()) {
+              if (has_if_chain) {
+                Write(CloseBrace(), "Else", OpenBrace());
+              }
+              ResetTypeStack(mark);
+              Write(catch_.exprs);
+              if (has_if_chain) {
+                Write(CloseBrace());
+              }
+              break; 
+            }
+
+            const auto& tag_var = catch_.var;
+            if (first_catch) {
+              Write("If e.tag = ", module_->GetTagIndex(tag_var), " Then", OpenBrace());
+            } else {
+              Write(CloseBrace(), "Else If e.tag = ", module_->GetTagIndex(tag_var), " Then", OpenBrace());
+            }
+            first_catch = false;
+            
+            ResetTypeStack(mark);
+            const Tag* tag = module_->GetTag(tag_var);
+            Index num_params = tag->decl.sig.GetNumParams();
+            PushTypes(tag->decl.sig.param_types);
+            for (Index i = 0; i < num_params; ++i) {
+              Write(StackVar(num_params - 1 - i), " = e.values[", i, "]", Newline());
+            }
+            Write(catch_.exprs);
+          }
+
+          if (has_if_chain) {
+            bool has_catch_all = !try_.catches.empty() && try_.catches.back().IsCatchAll();
+            if (!has_catch_all) {
+                Write(CloseBrace());
+                Write("Else", OpenBrace());
+                Write("Throw e", Newline());
+                Write(CloseBrace());
+            }
+            Write("End If", Newline());
+          }
+        }
+
+        Write(CloseBrace(), "End Try", Newline());
+        Write(LabelDecl(label));
+        ResetTypeStack(mark);
+        PushTypes(try_.block.decl.sig.result_types);
+        break;
+      }
       case ExprType::AtomicLoad:
       case ExprType::AtomicRmw:
       case ExprType::AtomicRmwCmpxchg:
@@ -1563,11 +1672,8 @@ void CWriter::Write(const ExprList& exprs) {
       case ExprType::AtomicWait:
       case ExprType::AtomicFence:
       case ExprType::AtomicNotify:
-      case ExprType::Rethrow:
       case ExprType::ReturnCall:
       case ExprType::ReturnCallIndirect:
-      case ExprType::Throw:
-      case ExprType::Try:
       case ExprType::DataDrop:
       case ExprType::MemoryInit:
       case ExprType::TableCopy:

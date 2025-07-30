@@ -57,8 +57,7 @@ examples:
   $ wasm2brs test.wasm -o test.brs
 )";
 
-// For now, we don't support any features, so this is empty.
-static const std::vector<std::string> supported_features = {};
+static const std::string supported_features[] = { "exceptions" };
 
 static bool IsFeatureSupported(const std::string& feature) {
   return std::find(std::begin(supported_features), std::end(supported_features),
