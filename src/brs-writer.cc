@@ -1573,7 +1573,6 @@ void CWriter::Write(const ExprList& exprs) {
           Write("[");
           for (Index i = 0; i < num_params; ++i) {
             if (i > 0) Write(", ");
-            // TODO: what if we have no stack vars?
             Write(StackVar(num_params - 1 - i));
           }
           Write("]");
