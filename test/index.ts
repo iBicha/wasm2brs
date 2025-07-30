@@ -150,20 +150,7 @@ const outputWastTests = async (wastFile: string, guid: string): Promise<boolean 
   const doubleNegativeZeroBrs = "DoubleNegativeZero()";
   const toArgValue = (arg: WastArg) => {
     if (arg.type === "i32" || arg.type === "i64") {
-      if (arg.value === undefined) {
-        return `0${arg.type === "i32" ? "%" : "&"}`;
-      }
-      let value = BigInt(arg.value);
-      if (arg.type === "i32") {
-        if (value > BigInt("0x7FFFFFFF")) {
-          value -= BigInt("0x100000000");
-        }
-        return `${value.toString()}%`;
-      }
-      if (value > BigInt("0x7FFFFFFFFFFFFFFF")) {
-        value -= BigInt("0x10000000000000000");
-      }
-      return `${value.toString()}&`;
+      return arg.value + (arg.type === "i32" ? "%" : "&");
     }
 
     // TODO(trevor): Differentiate between nan:canonical and nan:arithmetic (find a way in BrightScript)
