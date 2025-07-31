@@ -1589,12 +1589,9 @@ void CWriter::Write(const ExprList& exprs) {
 
       case ExprType::Try: {
         const auto& try_ = *cast<TryExpr>(&expr);
-        std::string label = DefineLocalScopeName(try_.block.label);
         size_t mark = MarkTypeStack();
         Write("Try", OpenBrace());
-        PushLabel(LabelType::Try, try_.block.label, try_.block.decl.sig);
         Write(try_.block.exprs);
-        PopLabel();
         Write(CloseBrace(), "Catch e", OpenBrace());
 
         // Rethrow for any non wasm exceptions.
@@ -1659,7 +1656,6 @@ void CWriter::Write(const ExprList& exprs) {
         }
 
         Write(CloseBrace(), "End Try", Newline());
-        Write(LabelDecl(label));
         ResetTypeStack(mark);
         PushTypes(try_.block.decl.sig.result_types);
         break;
